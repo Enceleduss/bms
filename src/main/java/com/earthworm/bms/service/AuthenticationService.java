@@ -57,12 +57,12 @@ public class AuthenticationService {
                     new UsernamePasswordAuthenticationToken(username, password)
             );
 
-            String token = tokenService.generateJwt(auth);
-
-            return new LoginResponseDTO(userRepository.findByUserName(username).get(), token);
+            String token = tokenService.generateJwt(auth,60000);
+            String refreshToken = tokenService.generateJwt(auth,300000);
+            return new LoginResponseDTO(userRepository.findByUserName(username).get(), token, refreshToken);
 
         } catch(AuthenticationException e){
-            return new LoginResponseDTO(null, "");
+            return new LoginResponseDTO(null, "","");
         }
     }
 
