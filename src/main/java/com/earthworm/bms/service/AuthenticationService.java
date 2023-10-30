@@ -1,9 +1,14 @@
 package com.earthworm.bms.service;
 
+import java.io.IOException;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
 import com.earthworm.bms.model.datapojos.RegistrationDetailsDTO;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -47,10 +52,20 @@ public class AuthenticationService {
 
         authorities.add(userRole);
 
-        return userRepository.save(new CustomerRecord(rec.getName(), rec.getEmail(), rec.getUserName(), encodedPassword, rec.getAddress(), rec.getPan(), rec.getUid(), authorities));
+        CustomerRecord userRecord = userRepository.save(new CustomerRecord(rec.getName(), rec.getEmail(), rec.getUsername(), encodedPassword, rec.getAddress(), rec.getPan(), rec.getUid(), authorities));
+        userRecord.setAcctype(rec.getAcctype());
+        userRecord.setBranchname(rec.getBranchname());
+        userRecord.setDob(rec.getDob());
+        userRecord.setCountry(rec.getCountry());
+        userRecord.setDocnum(rec.getDocnum());
+        userRecord.setIdentificationtype(rec.getIdentificationtype());
+        userRecord.setPhone(rec.getPhone());
+        userRecord.setState(rec.getState());
+        userRecord.setInitialdeposit(rec.getInitialdeposit());
+        return userRecord;
     }
 
-    public LoginResponseDTO loginUser(String username, String password){
+    public LoginResponseDTO loginUser(String username, String password, HttpServletResponse response) throws IOException {
         System.out.println("trying to authenticate username " + username + " password " + password);
         try{
             Authentication auth = authenticationManager.authenticate(
@@ -59,10 +74,17 @@ public class AuthenticationService {
 
             String token = tokenService.generateJwt(auth,60000);
             String refreshToken = tokenService.generateJwt(auth,300000);
-            return new LoginResponseDTO(userRepository.findByUserName(username).get(), token, refreshToken);
+            Cookie cookie = new Cookie("refreshToken", refreshToken);
+            cookie.setPath("/login");
+            cookie.setMaxAge(Instant.now().plusMillis(300000).getNano());
+            cookie.setHttpOnly(true);
+            response.addCookie(cookie);
+            return new LoginResponseDTO(userRepository.findByUsername(username).get(), token);
 
         } catch(AuthenticationException e){
-            return new LoginResponseDTO(null, "","");
+            //response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED,e.getMessage());
+            return new LoginResponseDTO(null, "");
         }
     }
 

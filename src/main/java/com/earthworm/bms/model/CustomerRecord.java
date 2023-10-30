@@ -29,7 +29,7 @@ public class CustomerRecord implements UserDetails {
 
 
     @Column
-    private String userName;
+    private String username;
     @JsonIgnore
     @Column
     private String password;
@@ -39,6 +39,24 @@ public class CustomerRecord implements UserDetails {
     private String pan;
     @Column(length = 64)
     private String uid;
+    @Column(length = 64)
+    private String acctype;
+    @Column(length = 64)
+    private String branchname;
+    @Column(length = 64)
+    private String country;
+    @Column
+    private long dob;
+    @Column(length = 64)
+    private String docnum;
+    @Column(length = 64)
+    private String identificationtype;
+    @Column
+    private double initialdeposit;
+    @Column(length = 64)
+    private String phone;
+    @Column(length = 64)
+    private String state;
     @ManyToMany(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @JoinTable(name = "user_roles",
             joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "id"),
@@ -52,7 +70,7 @@ public class CustomerRecord implements UserDetails {
         super();
         this.id = userId;
         this.name = username;
-        this.userName = username;
+        this.username = username;
         this.password = password;
         this.roles = authorities;
     }
@@ -62,13 +80,13 @@ public class CustomerRecord implements UserDetails {
 
     @Override
     public String getUsername() {
-        return this.userName;
+        return this.username;
     }
 
     public CustomerRecord(String name, String email, String userName, String password, String address, String pan, String uid, Set<Role> roles) {
         this.name = name;
         this.email = email;
-        this.userName = userName;
+        this.username = userName;
         this.password = password;
         this.address = address;
         this.pan = pan;
@@ -94,6 +112,82 @@ public class CustomerRecord implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getAcctype() {
+        return acctype;
+    }
+
+    public void setAcctype(String acctype) {
+        this.acctype = acctype;
+    }
+
+    public String getBranchname() {
+        return branchname;
+    }
+
+    public void setBranchname(String branchname) {
+        this.branchname = branchname;
+    }
+
+    public String getCountry() {
+        return country;
+    }
+
+    public void setCountry(String country) {
+        this.country = country;
+    }
+
+    public long getDob() {
+        return dob;
+    }
+
+    public void setDob(long dob) {
+        this.dob = dob;
+    }
+
+    public String getDocnum() {
+        return docnum;
+    }
+
+    public void setDocnum(String docnum) {
+        this.docnum = docnum;
+    }
+
+    public String getIdentificationtype() {
+        return identificationtype;
+    }
+
+    public void setIdentificationtype(String identificationtype) {
+        this.identificationtype = identificationtype;
+    }
+
+    public double getInitialdeposit() {
+        return initialdeposit;
+    }
+
+    public void setInitialdeposit(double initialdeposit) {
+        this.initialdeposit = initialdeposit;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
     }
 
     public void setPassword(String password) {

@@ -28,7 +28,7 @@ public class CustomerDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
         System.out.println("In the user details service " + usernameOrEmail);
-        CustomerRecord user = customerRepository.findByUserNameOrEmail(usernameOrEmail, usernameOrEmail)
+        CustomerRecord user = customerRepository.findByUsernameOrEmail(usernameOrEmail, usernameOrEmail)
                 .orElseThrow(() ->
                         new UsernameNotFoundException("User not found with username or email: "+ usernameOrEmail));
         System.out.println("found user "+user);

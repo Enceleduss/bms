@@ -5,16 +5,16 @@ import com.earthworm.bms.model.CustomerRecord;
 public class LoginResponseDTO {
     private CustomerRecord user;
     private String jwt;
-    private String refreshToken;
+    //private String refreshToken;
 
     public LoginResponseDTO(){
         super();
     }
 
-    public LoginResponseDTO(CustomerRecord user, String jwt, String refreshToken){
+    public LoginResponseDTO(CustomerRecord user, String jwt){
         this.user = user;
         this.jwt = jwt;
-        this.refreshToken = refreshToken;
+       // this.refreshToken = refreshToken;
     }
 
     public CustomerRecord getUser(){
@@ -29,13 +29,7 @@ public class LoginResponseDTO {
         return this.jwt;
     }
 
-    public String getRefreshToken() {
-        return refreshToken;
-    }
 
-    public void setRefreshToken(String refreshToken) {
-        this.refreshToken = refreshToken;
-    }
 
     public void setJwt(String jwt){
         this.jwt = jwt;

@@ -31,6 +31,8 @@ import com.earthworm.bms.model.datapojos.LoginDTO;
 import com.earthworm.bms.model.datapojos.RegistrationDetailsDTO;
 import com.earthworm.bms.service.AuthenticationService;
 
+import java.io.IOException;
+
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 
 @RestController
@@ -52,15 +54,15 @@ public class AuthenticationController {
     @PostMapping("/register")
     public CustomerRecord registerUser(@RequestBody RegistrationDetailsDTO body){
         System.out.println("body " + body.toString());
-        if(!userRepository.existsByUserName(body.getUserName()))
+        if(!userRepository.existsByUsername(body.getUsername()))
             return authenticationService.registerUser(body);
         else
             return null;
     }
 
     @PostMapping("/login")
-    public LoginResponseDTO loginUser(@RequestBody LoginDTO body){
-        return authenticationService.loginUser(body.getUsername(), body.getPassword());
+    public LoginResponseDTO loginUser(@RequestBody LoginDTO body, HttpServletResponse response) throws IOException {
+        return authenticationService.loginUser(body.getUsername(), body.getPassword(),response);
     }
     @GetMapping("/refresh")
     public void refreshUser(HttpServletRequest request, HttpServletResponse response){
@@ -71,7 +73,7 @@ public class AuthenticationController {
             authenticationRequest.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             Authentication authenticationResult = jwtAuthResolver.resolve(request).authenticate(authenticationRequest);
             String username = ((Jwt) authenticationResult.getPrincipal()).getSubject();
-            CustomerRecord user = customerRepository.findByUserName(username).orElseThrow(() ->
+            CustomerRecord user = customerRepository.findByUsername(username).orElseThrow(() ->
                             new UsernameNotFoundException("User not found with username or email: "+ username));
             if(user != null)
             {
@@ -85,8 +87,8 @@ public class AuthenticationController {
         }
     }
     @GetMapping("/user-details")
-    public String getUserDetails(){
+    public CustomerRecord getUserDetails(){
         String userName = SecurityContextHolder.getContext().getAuthentication().getName().toString();
-        return userRepository.findByUserName(userName).orElseThrow().getName();
+        return userRepository.findByUsername(userName).orElseThrow();
     }
 }

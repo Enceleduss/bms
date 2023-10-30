@@ -10,8 +10,8 @@ import java.util.Optional;
 public interface CustomerRepository extends CrudRepository<CustomerRecord, Long> {
    // void saveCustomer(CustomerRecord cust);
     Optional<CustomerRecord> findByEmail(String email);
-    Optional<CustomerRecord> findByUserNameOrEmail(String username, String email);
-    Optional<CustomerRecord> findByUserName(String username);
-    Boolean existsByUserName(String username);
+    Optional<CustomerRecord> findByUsernameOrEmail(String username, String email);
+    Optional<CustomerRecord> findByUsername(String username);
+    Boolean existsByUsername(String username);
     Boolean existsByEmail(String email);
 }
