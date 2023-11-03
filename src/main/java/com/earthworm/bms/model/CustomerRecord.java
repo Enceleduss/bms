@@ -53,6 +53,8 @@ public class CustomerRecord implements UserDetails {
     private String identificationtype;
     @Column
     private double initialdeposit;
+    @Column
+    private double balance;
     @Column(length = 64)
     private String phone;
     @Column(length = 64)
@@ -239,5 +241,15 @@ public class CustomerRecord implements UserDetails {
 
     public void setRoles(Set<Role> roles) {
         this.roles = roles;
+    }
+    public double getBalance() {
+        return balance;
+    }
+
+    public void setBalance(double balance) {
+        this.balance = balance;
+    }
+    public void depositBalance(double balance) {
+        this.balance = this.balance + balance;
     }
 }

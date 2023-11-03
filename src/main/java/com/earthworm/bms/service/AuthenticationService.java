@@ -1,8 +1,10 @@
 package com.earthworm.bms.service;
 
 import java.io.IOException;
+import java.nio.file.attribute.UserPrincipalNotFoundException;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 
 import com.earthworm.bms.model.datapojos.RegistrationDetailsDTO;
@@ -23,6 +25,7 @@ import com.earthworm.bms.model.datapojos.LoginResponseDTO;
 import com.earthworm.bms.model.Role;
 import com.earthworm.bms.repository.RoleRepository;
 import com.earthworm.bms.repository.CustomerRepository;
+import org.springframework.web.bind.annotation.CrossOrigin;
 
 @Service
 @Transactional
@@ -62,30 +65,32 @@ public class AuthenticationService {
         userRecord.setPhone(rec.getPhone());
         userRecord.setState(rec.getState());
         userRecord.setInitialdeposit(rec.getInitialdeposit());
+        userRecord.depositBalance(rec.getInitialdeposit());
         return userRecord;
     }
 
-    public LoginResponseDTO loginUser(String username, String password, HttpServletResponse response) throws IOException {
+    public LoginResponseDTO loginUser(String username, String password, HttpServletResponse response) throws UserPrincipalNotFoundException {
         System.out.println("trying to authenticate username " + username + " password " + password);
-        try{
-            Authentication auth = authenticationManager.authenticate(
+
+        Authentication auth = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(username, password)
             );
 
-            String token = tokenService.generateJwt(auth,60000);
+
+            String token = tokenService.generateJwt(auth,10000);
             String refreshToken = tokenService.generateJwt(auth,300000);
             Cookie cookie = new Cookie("refreshToken", refreshToken);
-            cookie.setPath("/login");
-            cookie.setMaxAge(Instant.now().plusMillis(300000).getNano());
+            cookie.setMaxAge(60000);
             cookie.setHttpOnly(true);
             response.addCookie(cookie);
-            return new LoginResponseDTO(userRepository.findByUsername(username).get(), token);
+            //response.setHeader("Access-Control-Allow-Origin", "*");
+            //response.setHeader("Access-Control-Allow-Credentials", "true");
+            //response.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE");
+            //response.setHeader("Access-Control-Max-Age", "3600");
+            //response.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, X-Requested-With, remember-me");
+            return new LoginResponseDTO(userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User id or password is invalid")), token);
 
-        } catch(AuthenticationException e){
-            //response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED,e.getMessage());
-            return new LoginResponseDTO(null, "");
-        }
+
     }
 
 }

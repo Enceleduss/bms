@@ -8,8 +8,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import jdk.jshell.spi.ExecutionControl;
 import org.apache.tomcat.util.descriptor.web.SecurityConstraint;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManagerResolver;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -30,13 +33,15 @@ import com.earthworm.bms.model.datapojos.LoginResponseDTO;
 import com.earthworm.bms.model.datapojos.LoginDTO;
 import com.earthworm.bms.model.datapojos.RegistrationDetailsDTO;
 import com.earthworm.bms.service.AuthenticationService;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.nio.file.attribute.UserPrincipalNotFoundException;
+import java.util.Arrays;
 
 import static org.springframework.http.HttpHeaders.AUTHORIZATION;
 
 @RestController
-@CrossOrigin("*")
 public class AuthenticationController {
 
     @Autowired
@@ -51,44 +56,56 @@ public class AuthenticationController {
     CustomerRepository customerRepository;
     @Autowired
     TokenService tokenService;
-    @PostMapping("/register")
-    public CustomerRecord registerUser(@RequestBody RegistrationDetailsDTO body){
-        System.out.println("body " + body.toString());
-        if(!userRepository.existsByUsername(body.getUsername()))
-            return authenticationService.registerUser(body);
-        else
-            return null;
-    }
 
     @PostMapping("/login")
-    public LoginResponseDTO loginUser(@RequestBody LoginDTO body, HttpServletResponse response) throws IOException {
-        return authenticationService.loginUser(body.getUsername(), body.getPassword(),response);
+    public ResponseEntity<LoginResponseDTO> loginUser(@RequestBody LoginDTO body, HttpServletRequest request, HttpServletResponse response) throws UserPrincipalNotFoundException {
+        //throw new ResponseStatusException(HttpStatus.NOT_FOUND,"User not found with name ");
+        try{
+            return new ResponseEntity<>(authenticationService.loginUser(body.getUsername(), body.getPassword(),response), HttpStatus.OK);
+        }
+     catch(AuthenticationException e){
+         throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Authentication error "+e.getMessage(),e);
+     }
+        catch(Exception e)
+        {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Authentication error "+e.getMessage(),e);
+        }
+        //response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+      //  return new LoginResponseDTO(null, "");
+    //}
+      //  catch(RuntimeException e)
+    //{
+
+    //}
     }
     @GetMapping("/refresh")
-    public void refreshUser(HttpServletRequest request, HttpServletResponse response){
-        System.out.println("request "+request.getHeader("Authorization"));
+    public ResponseEntity<LoginResponseDTO> refreshUser(HttpServletRequest request, HttpServletResponse response){
+        System.out.println("entered  refreshUser controller "+request.getCookies().length);
+        String receivedToken = Arrays.stream(request.getCookies())
+                .filter(cookie->cookie.getName().equals("refreshToken"))
+                .map(cookie -> cookie.getValue())
+                .findAny().orElseThrow();
+        System.out.println("request "+receivedToken);
         try {
-            String token = bearerTokenResolver.getResolver().resolve(request);
+            String token = receivedToken;
             BearerTokenAuthenticationToken authenticationRequest = new BearerTokenAuthenticationToken(token);
             authenticationRequest.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             Authentication authenticationResult = jwtAuthResolver.resolve(request).authenticate(authenticationRequest);
             String username = ((Jwt) authenticationResult.getPrincipal()).getSubject();
             CustomerRecord user = customerRepository.findByUsername(username).orElseThrow(() ->
                             new UsernameNotFoundException("User not found with username or email: "+ username));
+            String jwt_token = "";
             if(user != null)
             {
 
-                String jwt_token = tokenService.generateJwt(authenticationResult,10000);
-                response.setHeader(AUTHORIZATION, jwt_token);
+                jwt_token = tokenService.generateJwt(authenticationResult,10000);
             }
+            return new ResponseEntity<>(new LoginResponseDTO(user,jwt_token), HttpStatus.OK);
         }
         catch(Exception e){
-            e.printStackTrace();;
+            //e.printStackTrace();
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Session expired, "+e.getMessage(),e);
         }
     }
-    @GetMapping("/user-details")
-    public CustomerRecord getUserDetails(){
-        String userName = SecurityContextHolder.getContext().getAuthentication().getName().toString();
-        return userRepository.findByUsername(userName).orElseThrow();
-    }
+
 }
