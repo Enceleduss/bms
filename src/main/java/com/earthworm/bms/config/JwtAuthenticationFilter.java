@@ -34,6 +34,7 @@ public class JwtAuthenticationFilter extends BearerTokenAuthenticationFilter {
             response.setStatus(HttpServletResponse.SC_OK);
             return;
         }*/
+
         if(request.getServletPath().equals("/refresh")) {
             filterChain.doFilter(request, response);
             return;

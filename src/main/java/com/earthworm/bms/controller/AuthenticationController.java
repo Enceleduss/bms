@@ -1,13 +1,16 @@
 package com.earthworm.bms.controller;
 
 import com.earthworm.bms.repository.CustomerRepository;
+import com.earthworm.bms.service.RefreshTokenService;
 import com.earthworm.bms.service.TokenService;
 import com.earthworm.bms.utils.DefaultJwtExtractor;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jdk.jshell.spi.ExecutionControl;
 import org.apache.tomcat.util.descriptor.web.SecurityConstraint;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManagerResolver;
@@ -21,13 +24,8 @@ import org.springframework.security.oauth2.server.resource.authentication.Bearer
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.bind.annotation.*;
+import com.earthworm.bms.exceptions.RefreshTokenException;//CustomerRecord;
 import com.earthworm.bms.model.CustomerRecord;
 import com.earthworm.bms.model.datapojos.LoginResponseDTO;
 import com.earthworm.bms.model.datapojos.LoginDTO;
@@ -56,6 +54,8 @@ public class AuthenticationController {
     CustomerRepository customerRepository;
     @Autowired
     TokenService tokenService;
+    @Autowired
+    RefreshTokenService refreshTokenService;
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponseDTO> loginUser(@RequestBody LoginDTO body, HttpServletRequest request, HttpServletResponse response) throws UserPrincipalNotFoundException {
@@ -88,6 +88,8 @@ public class AuthenticationController {
         System.out.println("request "+receivedToken);
         try {
             String token = receivedToken;
+            refreshTokenService.findByToken(token).orElseThrow(() -> new RefreshTokenException(token,
+                    "Refresh token is not in database!"));
             BearerTokenAuthenticationToken authenticationRequest = new BearerTokenAuthenticationToken(token);
             authenticationRequest.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             Authentication authenticationResult = jwtAuthResolver.resolve(request).authenticate(authenticationRequest);
@@ -106,6 +108,22 @@ public class AuthenticationController {
             //e.printStackTrace();
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"Session expired, "+e.getMessage(),e);
         }
+    }
+
+    @PostMapping("/signout")
+    public ResponseEntity<?> logoutUser(@RequestBody String body, HttpServletResponse response) {
+        String userName = SecurityContextHolder.getContext().getAuthentication().getName().toString();
+        if (userName != "") {
+            refreshTokenService.deleteByUserName(userName);
+        }
+
+        Cookie cookie = new Cookie("refreshToken", "");
+        cookie.setMaxAge(0);
+        cookie.setHttpOnly(true);
+        response.addCookie(cookie);
+
+        return ResponseEntity.ok()
+                .body("You've been signed out!");
     }
 
 }

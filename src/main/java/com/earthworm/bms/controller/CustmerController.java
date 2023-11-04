@@ -39,14 +39,6 @@ public class CustmerController {
     private AuthenticationService authenticationService;
     @Autowired
     private CustomerRepository userRepository;
-    @Autowired
-    private DefaultJwtExtractor bearerTokenResolver;
-    @Autowired
-    AuthenticationManagerResolver jwtAuthResolver;
-    @Autowired
-    CustomerRepository customerRepository;
-    @Autowired
-    TokenService tokenService;
     @PostMapping("/register")
     public ResponseEntity<CustomerRecord> registerUser(@RequestBody RegistrationDetailsDTO body){
         System.out.println("body " + body.toString());
