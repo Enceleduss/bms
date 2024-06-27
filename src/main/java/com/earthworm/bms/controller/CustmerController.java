@@ -56,6 +56,7 @@ public class CustmerController {
                 new UsernameNotFoundException("No user session is active"));
     }
     @PutMapping("/make-deposit")
+    // comment
     public CustomerRecord updateUserDetails(@RequestBody DepositDTO body){
         String userName = SecurityContextHolder.getContext().getAuthentication().getName().toString();
         CustomerRecord user = userRepository.findByUsername(userName).orElseThrow(() ->
