@@ -8,7 +8,7 @@ import java.security.interfaces.RSAPublicKey;
 
 @Component
 public class DefaultJwtExtractor {
-    private final BearerTokenResolver resolver = new DefaultBearerTokenResolver();;
+    private final BearerTokenResolver resolver = new DefaultBearerTokenResolver();
 
     public BearerTokenResolver getResolver() {
         return this.resolver;// = new DefaultBearerTokenResolver();

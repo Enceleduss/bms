@@ -32,6 +32,7 @@ public class BmsApplication {
 			CustomerRecord admin = new CustomerRecord(1, "admin", passwordEncode.encode("password"), roles);
 
 			userRepository.save(admin);
+
 		};
 	}
 }
