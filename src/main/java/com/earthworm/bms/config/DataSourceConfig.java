@@ -33,8 +33,10 @@ public class DataSourceConfig {
     public DataSource getDataSourceFromApplicationPropertiesPGSQL() {
         PGSimpleDataSource ds = new PGSimpleDataSource() ;
         String [] serverNames = {"localhost"};
+        int[] serverPortNumbers = { 5432 };
+        ds.setPortNumbers( serverPortNumbers );
         ds.setServerNames(serverNames);
-        ds.setDatabaseName( DB_URL );
+        ds.setDatabaseName( "bms" );
         ds.setUser( USER );
         ds.setPassword( PASS );
         return ds;
