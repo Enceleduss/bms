@@ -1,0 +1,9 @@
+<div class="app-header" style="background: #eee; padding: 10px; margin-bottom: 10px; border-bottom: 1px solid #ccc;">
+    <!-- Declare that this component accepts one argument, which we'll call 'title' locally -->
+    <dt:comp-arg name="title"/>
+
+    <!-- Use the argument -->
+    <h4><dt:v>title</dt:v></h4>
+
+    <p>Global App Name: <dt:v>appName</dt:v></p>
+</div>

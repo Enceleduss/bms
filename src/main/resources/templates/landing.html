@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Welcome</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .landing-container { background-color: #fff; padding: 20px 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 600px; text-align: center; }
+        .user-card { border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin-top: 20px; background-color: #f9f9f9; text-align: left; }
+        .user-card h3 { margin-top: 0; }
+        .user-card p { margin: 4px 0; }
+        .user-card .label { font-weight: bold; }
+        #connection-status { font-size: 12px; margin-top: 10px; color: #888; }
+        .status-online { color: green !important; }
+        .status-offline { color: red !important; }
+    </style>
+</head>
+<body>
+    <div class="landing-container">
+        <h2 th:text="'Hello, ' + ${username} + '!'">Hello!</h2>
+        <p>Your user details are rendered by a server-compiled JavaScript function.</p>
+
+        <!-- The target container -->
+        <div id="component-container"></div>
+
+        <div id="connection-status">Connecting to reactive updates...</div>
+
+        <form th:action="@{/signout}" method="post" style="margin-top: 20px;">
+            <button type="submit">Sign Out</button>
+        </form>
+    </div>
+
+    <!-- 1. Include the server-compiled JavaScript file -->
+    <script src="/components/user-card.js"></script>
+
+    <!-- 2. Framework Logic for Rendering and Reactive Updates -->
+    <script>
+        const container = document.getElementById('component-container');
+        const statusDiv = document.getElementById('connection-status');
+
+        function refreshComponent(componentName) {
+            console.log(`Refreshing component: ${componentName}`);
+            fetch(`/api/evaluate/${componentName}`)
+                .then(response => response.json())
+                .then(evaluatedData => {
+                    // Assuming componentName 'user-card' maps to 'renderUserCard'
+                    // In a real framework, this mapping would be dynamic.
+                    const renderFnName = 'render' + componentName.split('-').map(p => p[0].toUpperCase() + p.slice(1)).join('');
+
+                    if (typeof window[renderFnName] === 'function') {
+                        const newElement = window[renderFnName](evaluatedData);
+                        container.innerHTML = '';
+                        container.appendChild(newElement);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error refreshing component:', error);
+                });
+        }
+
+        // Initial Load
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshComponent('user-card');
+
+            // Set up Reactive Updates via SSE
+            const eventSource = new EventSource('/api/reactive-updates');
+
+            eventSource.onopen = () => {
+                statusDiv.textContent = 'Reactive Updates: Online';
+                statusDiv.className = 'status-online';
+            };
+
+            eventSource.onerror = () => {
+                statusDiv.textContent = 'Reactive Updates: Offline (Reconnecting...)';
+                statusDiv.className = 'status-offline';
+            };
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('Received update:', data);
+
+                if (data.type === 'REFRESH_REQUIRED') {
+                    // For now, we refresh all active components.
+                    // In a production version, we'd use data.nodeId to refresh only affected parts.
+                    refreshComponent('user-card');
+                }
+            };
+        });
+    </script>
+</body>
+</html>

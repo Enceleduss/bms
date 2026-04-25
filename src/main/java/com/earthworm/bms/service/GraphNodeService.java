@@ -14,7 +14,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
-public class GraphNodeService {
+public class
+GraphNodeService {
     @Autowired
     GraphUtils gUtils;
     @Autowired

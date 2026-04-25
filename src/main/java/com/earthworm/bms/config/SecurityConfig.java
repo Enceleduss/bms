@@ -82,7 +82,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception{
+    @Order(2)
+    public SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception{
         http.csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> {
                     auth.requestMatchers("/login/**","/beans","/actuator/**").permitAll();
@@ -90,7 +91,8 @@ public class SecurityConfig {
 
                     auth.requestMatchers("/register/**").permitAll();
                     auth.requestMatchers("/refresh/**").permitAll();
-                   // auth.requestMatchers("/admin/**").hasRole("ADMIN");
+                    //auth.requestMatchers("/index/**").permitAll();
+                    // auth.requestMatchers("/admin/**").hasRole("ADMIN");
                     //auth.requestMatchers("/user/**").hasAnyRole("ADMIN", "USER");
                     auth.anyRequest().authenticated();
                 }).addFilterBefore(authenticationTokenFilter(),JwtAuthenticationFilter.class);
@@ -108,7 +110,30 @@ public class SecurityConfig {
 
         return http.build();
     }
+    @Bean
+    @Order(1)
+    public SecurityFilterChain webFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> {
+                    auth.requestMatchers("/login/**", "/register/**", "/index/**", "/css/**", "/js/**", "/images/**", "/error/**").permitAll();
+                    auth.anyRequest().authenticated();
+                })
+                .formLogin(form -> form
+                        .loginPage("/login")
+                        .defaultSuccessUrl("/landing", true)
+                        .permitAll()
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/signout")
+                        .logoutSuccessUrl("/login?logout")
+                        .permitAll()
+                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
 
+        return http.build();
+
+    }
 
     @Primary
     @Bean

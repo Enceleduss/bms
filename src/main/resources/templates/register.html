@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+        }
+        .register-container {
+            background-color: #fff;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 400px;
+            max-width: 95%;
+            text-align: center;
+            transition: width 0.3s ease-in-out;
+        }
+        .register-container h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .form-group button {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .form-group button:hover {
+            background-color: #218838;
+        }
+        .login-link {
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        .login-link a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+        #error-message {
+            color: red;
+            margin-bottom: 15px;
+            min-height: 1em;
+        }
+
+        @media (min-width: 992px) {
+            .register-container {
+                width: 800px;
+            }
+            #registerForm {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-column-gap: 25px;
+            }
+            .form-group.full-width {
+                grid-column: 1 / -1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <h2>Create Account</h2>
+        <div id="error-message"></div>
+        <form id="registerForm">
+            <div class="form-group"><label for="name">Name:</label><input type="text" id="name" name="name" required></div>
+            <div class="form-group"><label for="email">Email:</label><input type="email" id="email" name="email" required></div>
+            <div class="form-group"><label for="username">Username:</label><input type="text" id="username" name="username" required></div>
+            <div class="form-group"><label for="password">Password:</label><input type="password" id="password" name="password" required></div>
+            <div class="form-group"><label for="address">Address:</label><input type="text" id="address" name="address"></div>
+            <div class="form-group"><label for="phone">Phone:</label><input type="text" id="phone" name="phone"></div>
+            <div class="form-group"><label for="pan">PAN:</label><input type="text" id="pan" name="pan"></div>
+            <div class="form-group"><label for="uid">UID:</label><input type="text" id="uid" name="uid"></div>
+            <div class="form-group"><label for="acctype">Account Type:</label><input type="text" id="acctype" name="acctype"></div>
+            <div class="form-group"><label for="branchname">Branch Name:</label><input type="text" id="branchname" name="branchname"></div>
+            <div class="form-group"><label for="country">Country:</label><input type="text" id="country" name="country"></div>
+            <div class="form-group"><label for="state">State:</label><input type="text" id="state" name="state"></div>
+            <div class="form-group"><label for="dob">Date of Birth:</label><input type="date" id="dob" name="dob"></div>
+            <div class="form-group"><label for="identificationtype">Identification Type:</label><input type="text" id="identificationtype" name="identificationtype"></div>
+            <div class="form-group"><label for="docnum">Document Number:</label><input type="text" id="docnum" name="docnum"></div>
+            <div class="form-group"><label for="initialdeposit">Initial Deposit:</label><input type="number" id="initialdeposit" name="initialdeposit"></div>
+
+            <div class="form-group full-width"><button type="submit">Register</button></div>
+        </form>
+        <div class="login-link">
+            Already have an account? <a href="/login">Login here</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            document.getElementById('error-message').textContent = '';
+
+            const formData = new FormData(event.target);
+            const data = {};
+            formData.forEach((value, key) => {
+                if (key === 'dob' && value) {
+                    data[key] = new Date(value).getTime();
+                } else {
+                    data[key] = value;
+                }
+            });
+
+            fetch('/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (response.ok) {
+                    window.location.href = '/login';
+                } else {
+                    if (response.status === 400) {
+                         document.getElementById('error-message').textContent = 'Username already exists. Please choose a different one.';
+                    } else {
+                         document.getElementById('error-message').textContent = 'An error occurred during registration. Please try again.';
+                    }
+                }
+            }).catch(error => {
+                document.getElementById('error-message').textContent = 'A network error occurred. Please try again.';
+            });
+        });
+    </script>
+</body>
+</html>

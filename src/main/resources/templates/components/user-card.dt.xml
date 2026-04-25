@@ -1,0 +1,24 @@
+<!-- This is a custom XML template for our framework -->
+<div class="user-card" xmlns:dt="http://www.w3.org/1999/xhtml">
+    <dt:var name="fullName">user.name.toUpperCase()</dt:var>
+    <dt:var name="appInfo">appName + " v" + version</dt:var>
+
+    <h3><dt:v>fullName</dt:v></h3>
+
+    <p><span class="label">Email:</span> <span>${user.email}</span></p>
+
+    <dt:if cond="isAdmin">
+        <dt:then>
+            <p style="color: red; font-weight: bold;">ADMINISTRATOR ACCESS</p>
+            <button>Delete User</button>
+        </dt:then>
+        <dt:else>
+            <p style="color: green;">Standard User</p>
+        </dt:else>
+    </dt:if>
+
+    <p>
+        <span class="label">App Info:</span>
+        <span><dt:v>appInfo</dt:v></span>
+    </p>
+</div>

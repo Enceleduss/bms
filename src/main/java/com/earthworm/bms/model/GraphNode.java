@@ -1,5 +1,6 @@
 package com.earthworm.bms.model;
 
+import com.earthworm.bms.service.reactive.DependencyTracker;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import jakarta.persistence.*;
@@ -21,6 +22,9 @@ public class GraphNode {
     protected String type;
 
     public long getId() {
+        // Whenever the ID is accessed (which happens during any property access in GraalVM),
+        // we record it as a dependency.
+        DependencyTracker.recordAccess(id);
         return id;
     }
 
