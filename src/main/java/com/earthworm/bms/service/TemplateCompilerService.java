@@ -15,7 +15,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 @Service
 public class TemplateCompilerService {
@@ -27,31 +26,39 @@ public class TemplateCompilerService {
     public CompilationResult compile(String xml, String functionName) throws IOException {
         Set<String> compiledComponents = new HashSet<>();
         StringBuilder fullJsOutput = new StringBuilder();
-        Map<String, String> allExpressions = new HashMap<>();
+        
+        // THESE MUST BE GLOBAL FOR THE ENTIRE COMPILATION BUNDLE
+        Map<String, String> globalExpressionMap = new HashMap<>(); // For data['expr_N'] -> raw expression
+        Map<String, String> globalReverseMap = new HashMap<>(); // For raw expression -> data['expr_N']
+        AtomicInteger globalExpressionCounter = new AtomicInteger(0);
 
-        compileRecursive(xml, functionName, fullJsOutput, allExpressions, compiledComponents);
+        compileRecursive(xml, functionName, fullJsOutput, globalExpressionMap, globalReverseMap, globalExpressionCounter, compiledComponents);
 
-        return new CompilationResult(fullJsOutput.toString(), allExpressions);
+        return new CompilationResult(fullJsOutput.toString(), globalExpressionMap);
     }
 
     private void compileRecursive(String xml, String functionName, StringBuilder fullJsOutput, 
-                                  Map<String, String> allExpressions, Set<String> compiledComponents) throws IOException {
+                                  Map<String, String> allExpressions, Map<String, String> globalReverseMap, 
+                                  AtomicInteger globalExpressionCounter, Set<String> compiledComponents) throws IOException {
         
         if (compiledComponents.contains(functionName)) {
             return;
         }
         compiledComponents.add(functionName);
 
-        Map<String, String> expressionMap = new HashMap<>();
-        Map<String, String> reverseMap = new HashMap<>();
-        AtomicInteger expressionCounter = new AtomicInteger(0);
+        // This is local to each component's generated function
         AtomicInteger varCounter = new AtomicInteger(0);
-        Map<String, String> dtVariables = new HashMap<>();
-        List<String> componentArgs = new ArrayList<>();
+        
+        // Stores dt:var name -> expressionString (e.g., "fullName" -> "user.name.toUpperCase()")
+        Map<String, String> dtVarNameToExpression = new HashMap<>();
+        // Stores dt:var name -> label (e.g., "fullName" -> "expr_0")
+        Map<String, String> dtVarNameToLabel = new HashMap<>();
+
+        List<String> componentArgs = new ArrayList<>(); // For dt:comp-arg
 
         Document doc = Jsoup.parse(xml, "", Parser.xmlParser());
 
-        // Pre-Pass: Process <dt:comp-arg> to determine function signature
+        // Pre-Pass 1: Process <dt:comp-arg> to determine function signature
         for (Element argTag : doc.select("dt|comp-arg")) {
             String argName = argTag.attr("name");
             componentArgs.add(argName);
@@ -67,29 +74,55 @@ public class TemplateCompilerService {
         jsBuilder.append(") {\n");
         jsBuilder.append("    const fragment = document.createDocumentFragment();\n");
 
-        // First Pass: Process <dt:var> tags
+        // Pre-Pass 2: Process <dt:hostPageVar> tags to set values in the server-side 'env' object
+        for (Element varTag : doc.select("dt|hostPageVar")) {
+            String varName = varTag.attr("name");
+            String varExpression = varTag.text().trim();
+            
+            // We need to tell the server to evaluate this expression and assign it to env[varName].
+            // To do this, we create a special expression that will be executed on the server.
+            // Notice we use the expression directly, not the evaluated result.
+            String assignmentExpression = String.format("env[%s] = %s", varName, varExpression);
+            
+            // Get a label for this assignment expression so it gets sent to the server for evaluation.
+            // The server will execute it and return the result (which we ignore on the client).
+            getLabelForExpression(assignmentExpression, globalExpressionCounter, allExpressions, globalReverseMap);
+            
+            varTag.remove(); // Remove the tag from the DOM
+        }
+
+        // Pre-Pass 3: Process <dt:var> tags to declare local variables
         for (Element varTag : doc.select("dt|var")) {
             String varName = varTag.attr("name");
             String varExpression = varTag.text().trim();
-            dtVariables.put(varName, varExpression);
-            varTag.remove();
+            
+            // Get a globally unique label for this expression
+            String label = getLabelForExpression(varExpression, globalExpressionCounter, allExpressions, globalReverseMap);
+            
+            dtVarNameToExpression.put(varName, varExpression); // Store original expression
+            dtVarNameToLabel.put(varName, label); // Store label for lookup
+            
+            // Generate local JS variable declaration: const fullName = data['expr_0'];
+            jsBuilder.append(String.format("    const %s = data['%s'];\n", varName, label));
+            
+            varTag.remove(); // Remove the tag from the DOM
         }
 
-        // Second Pass: Generate JS
+        // Second Pass: Generate JS from the remaining DOM
         for (Node node : doc.childNodes()) {
-            generateJsForNode(node, jsBuilder, "fragment", varCounter, expressionCounter, expressionMap, reverseMap, dtVariables, fullJsOutput, allExpressions, compiledComponents, componentArgs);
+            generateJsForNode(node, jsBuilder, "fragment", varCounter, globalExpressionCounter, allExpressions, globalReverseMap, dtVarNameToExpression, dtVarNameToLabel, fullJsOutput, compiledComponents, componentArgs);
         }
 
         jsBuilder.append("    return fragment;\n");
         jsBuilder.append("}\n");
 
         fullJsOutput.append(jsBuilder);
-        allExpressions.putAll(expressionMap);
     }
 
     private void generateJsForNode(Node node, StringBuilder jsBuilder, String parentVar, AtomicInteger varCounter, 
                                    AtomicInteger expressionCounter, Map<String, String> expressionMap, Map<String, String> reverseMap,
-                                   Map<String, String> dtVariables, StringBuilder fullJsOutput, Map<String, String> allExpressions, 
+                                   Map<String, String> dtVarNameToExpression, Map<String, String> dtVarNameToLabel,
+                                   StringBuilder fullJsOutput, 
                                    Set<String> compiledComponents, List<String> componentArgs) throws IOException {
         if (node instanceof Element) {
             Element element = (Element) node;
@@ -99,36 +132,26 @@ public class TemplateCompilerService {
             if (tagName.equals("dt:make-comp")) {
                 String componentName = element.attr("class");
                 String childFunctionName = "render" + toCamelCase(componentName);
-                String argsAttr = element.attr("args"); // e.g., "[myVar1, myVar2]"
+                String argsAttr = element.attr("args");
                 
-                // Parse arguments
                 List<String> callArgs = new ArrayList<>();
                 if (argsAttr != null && !argsAttr.isEmpty() && argsAttr.startsWith("[") && argsAttr.endsWith("]")) {
                     String content = argsAttr.substring(1, argsAttr.length() - 1);
                     if (!content.trim().isEmpty()) {
                         for (String argVarName : content.split(",")) {
                             argVarName = argVarName.trim();
-                            // If the argument is a dt:var, we need to pass its evaluated value.
-                            // But wait, dt:var defines an expression. The client receives the *result* of that expression.
-                            // The result is stored in data['expr_X'].
-                            // So we need to find the label for the expression associated with argVarName.
-                            
-                            String expression = dtVariables.get(argVarName);
-                            if (expression != null) {
-                                String label = getLabelForExpression(expression, expressionCounter, expressionMap, reverseMap);
+                            // If argVarName is a dt:var, use its local JS variable name
+                            if (dtVarNameToExpression.containsKey(argVarName)) {
+                                callArgs.add(argVarName);
+                            } 
+                            // If argVarName is a component argument, use its local JS variable name
+                            else if (componentArgs.contains(argVarName)) {
+                                callArgs.add(argVarName);
+                            }
+                            // Otherwise, treat as a raw expression and look up its value from 'data'
+                            else {
+                                String label = getLabelForExpression(argVarName, expressionCounter, expressionMap, reverseMap);
                                 callArgs.add("data['" + label + "']");
-                            } else {
-                                // It might be a raw expression or a literal? 
-                                // For simplicity, let's assume it MUST be a dt:var name or a component argument name.
-                                if (componentArgs.contains(argVarName)) {
-                                    // It's an argument passed to THIS component, pass it through
-                                    callArgs.add(argVarName);
-                                } else {
-                                    // Treat as raw expression/literal? Or fail?
-                                    // Let's treat as raw expression for flexibility
-                                    String label = getLabelForExpression(argVarName, expressionCounter, expressionMap, reverseMap);
-                                    callArgs.add("data['" + label + "']");
-                                }
                             }
                         }
                     }
@@ -136,9 +159,8 @@ public class TemplateCompilerService {
 
                 String childXml = loadComponentSource(componentName);
                 if (childXml != null) {
-                    compileRecursive(childXml, childFunctionName, fullJsOutput, allExpressions, compiledComponents);
+                    compileRecursive(childXml, childFunctionName, fullJsOutput, expressionMap, reverseMap, expressionCounter, compiledComponents);
                     
-                    // Generate call: childFunc(data, arg1, arg2)
                     StringBuilder callBuilder = new StringBuilder();
                     callBuilder.append(childFunctionName).append("(data");
                     for (String arg : callArgs) {
@@ -154,48 +176,25 @@ public class TemplateCompilerService {
             // Handle <dt:v> tag
             if (tagName.equals("dt:v")) {
                 String varName = element.text().trim();
+                String jsValueReference = getJsValueReference(varName, dtVarNameToExpression, dtVarNameToLabel, componentArgs, expressionCounter, expressionMap, reverseMap);
                 
-                // Check if it's a component argument first
-                if (componentArgs.contains(varName)) {
-                    String varNodeName = "txt" + varCounter.incrementAndGet();
-                    jsBuilder.append(String.format("    const %s = document.createTextNode(%s || '');\n", varNodeName, varName));
-                    jsBuilder.append(String.format("    %s.appendChild(%s);\n", parentVar, varNodeName));
-                    return;
-                }
-
-                String expression = dtVariables.get(varName);
-                if (expression != null) {
-                    String label = getLabelForExpression(expression, expressionCounter, expressionMap, reverseMap);
-                    String varNodeName = "txt" + varCounter.incrementAndGet();
-                    jsBuilder.append(String.format("    const %s = document.createTextNode(data['%s'] || '');\n", varNodeName, label));
-                    jsBuilder.append(String.format("    %s.appendChild(%s);\n", parentVar, varNodeName));
-                } else {
-                     // Fallback: treat varName as a raw expression (e.g. global var)
-                    String label = getLabelForExpression(varName, expressionCounter, expressionMap, reverseMap);
-                    String varNodeName = "txt" + varCounter.incrementAndGet();
-                    jsBuilder.append(String.format("    const %s = document.createTextNode(data['%s'] || '');\n", varNodeName, label));
-                    jsBuilder.append(String.format("    %s.appendChild(%s);\n", parentVar, varNodeName));
-                }
+                String varNodeName = "txt" + varCounter.incrementAndGet();
+                jsBuilder.append(String.format("    const %s = document.createTextNode(%s || '');\n", varNodeName, jsValueReference));
+                jsBuilder.append(String.format("    %s.appendChild(%s);\n", parentVar, varNodeName));
                 return;
             }
 
             // Handle <dt:if> tag
             if (tagName.equals("dt:if")) {
                 String conditionAttr = element.attr("cond");
-                String expression = dtVariables.getOrDefault(conditionAttr, conditionAttr);
+                String jsConditionReference = getJsValueReference(conditionAttr, dtVarNameToExpression, dtVarNameToLabel, componentArgs, expressionCounter, expressionMap, reverseMap);
                 
-                // If condition is a component argument, use it directly
-                if (componentArgs.contains(conditionAttr)) {
-                     jsBuilder.append(String.format("    if (%s) {\n", conditionAttr));
-                } else {
-                    String condLabel = getLabelForExpression(expression, expressionCounter, expressionMap, reverseMap);
-                    jsBuilder.append(String.format("    if (data['%s']) {\n", condLabel));
-                }
+                jsBuilder.append(String.format("    if (%s) {\n", jsConditionReference));
                 
                 Element thenBlock = element.selectFirst("dt|then");
                 if (thenBlock != null) {
                     for (Node child : thenBlock.childNodes()) {
-                        generateJsForNode(child, jsBuilder, parentVar, varCounter, expressionCounter, expressionMap, reverseMap, dtVariables, fullJsOutput, allExpressions, compiledComponents, componentArgs);
+                        generateJsForNode(child, jsBuilder, parentVar, varCounter, expressionCounter, expressionMap, reverseMap, dtVarNameToExpression, dtVarNameToLabel, fullJsOutput, compiledComponents, componentArgs);
                     }
                 }
                 
@@ -204,7 +203,7 @@ public class TemplateCompilerService {
                 Element elseBlock = element.selectFirst("dt|else");
                 if (elseBlock != null) {
                     for (Node child : elseBlock.childNodes()) {
-                        generateJsForNode(child, jsBuilder, parentVar, varCounter, expressionCounter, expressionMap, reverseMap, dtVariables, fullJsOutput, allExpressions, compiledComponents, componentArgs);
+                        generateJsForNode(child, jsBuilder, parentVar, varCounter, expressionCounter, expressionMap, reverseMap, dtVarNameToExpression, dtVarNameToLabel, fullJsOutput, compiledComponents, componentArgs);
                     }
                 }
                 
@@ -225,8 +224,8 @@ public class TemplateCompilerService {
                 Matcher matcher = EXPRESSION_PATTERN.matcher(attrValue);
                 if (matcher.find()) {
                     String expr = matcher.group(1);
-                    String label = getLabelForExpression(expr, expressionCounter, expressionMap, reverseMap);
-                    jsBuilder.append(String.format("    %s.setAttribute('%s', data['%s'] || '');\n", varName, attr.getKey(), label));
+                    String jsValueReference = getJsValueReference(expr, dtVarNameToExpression, dtVarNameToLabel, componentArgs, expressionCounter, expressionMap, reverseMap);
+                    jsBuilder.append(String.format("    %s.setAttribute('%s', %s || '');\n", varName, attr.getKey(), jsValueReference));
                 } else {
                     jsBuilder.append(String.format("    %s.setAttribute('%s', '%s');\n", varName, attr.getKey(), attrValue));
                 }
@@ -235,7 +234,7 @@ public class TemplateCompilerService {
             jsBuilder.append(String.format("    %s.appendChild(%s);\n", parentVar, varName));
 
             for (Node childNode : element.childNodes()) {
-                generateJsForNode(childNode, jsBuilder, varName, varCounter, expressionCounter, expressionMap, reverseMap, dtVariables, fullJsOutput, allExpressions, compiledComponents, componentArgs);
+                generateJsForNode(childNode, jsBuilder, varName, varCounter, expressionCounter, expressionMap, reverseMap, dtVarNameToExpression, dtVarNameToLabel, fullJsOutput, compiledComponents, componentArgs);
             }
 
         } else if (node instanceof TextNode) {
@@ -249,15 +248,15 @@ public class TemplateCompilerService {
             Matcher matcher = EXPRESSION_PATTERN.matcher(textContent);
             if (matcher.find()) {
                 String expression = matcher.group(1);
-                String label = getLabelForExpression(expression, expressionCounter, expressionMap, reverseMap);
-                String varName = "txt" + varCounter.incrementAndGet();
-                jsBuilder.append(String.format("    const %s = document.createTextNode(data['%s'] || '');\n", varName, label));
-                jsBuilder.append(String.format("    %s.appendChild(%s);\n", parentVar, varName));
+                String jsValueReference = getJsValueReference(expression, dtVarNameToExpression, dtVarNameToLabel, componentArgs, expressionCounter, expressionMap, reverseMap);
+                String varNodeName = "txt" + varCounter.incrementAndGet();
+                jsBuilder.append(String.format("    const %s = document.createTextNode(%s || '');\n", varNodeName, jsValueReference));
+                jsBuilder.append(String.format("    %s.appendChild(%s);\n", parentVar, varNodeName));
             } else {
-                String varName = "txt" + varCounter.incrementAndGet();
+                String varNodeName = "txt" + varCounter.incrementAndGet();
                 String escapedText = textContent.replace("'", "\\'").replace("\n", "\\n").replace("\r", "");
-                jsBuilder.append(String.format("    const %s = document.createTextNode('%s');\n", varName, escapedText));
-                jsBuilder.append(String.format("    %s.appendChild(%s);\n", parentVar, varName));
+                jsBuilder.append(String.format("    const %s = document.createTextNode('%s');\n", varNodeName, escapedText));
+                jsBuilder.append(String.format("    %s.appendChild(%s);\n", parentVar, varNodeName));
             }
         }
     }
@@ -271,6 +270,25 @@ public class TemplateCompilerService {
             reverseMap.put(expression, label);
             return label;
         }
+    }
+
+    // Helper to determine the correct JS reference (local var, component arg, or data['label'])
+    private String getJsValueReference(String nameOrExpression, 
+                                       Map<String, String> dtVarNameToExpression, Map<String, String> dtVarNameToLabel,
+                                       List<String> componentArgs,
+                                       AtomicInteger expressionCounter, Map<String, String> expressionMap, Map<String, String> reverseMap) {
+        // 1. Is it a local dt:var?
+        String splitted = nameOrExpression.split("\\.")[0];
+        if (dtVarNameToLabel.containsKey(splitted)) {
+            return nameOrExpression; // Use the local JS variable name directly
+        }
+        // 2. Is it a component argument?
+        if (componentArgs.contains(splitted)) {
+            return nameOrExpression; // Use the argument name directly
+        }
+        // 3. Otherwise, it's a raw expression, so get its label and reference it from the 'data' object
+        String label = getLabelForExpression(nameOrExpression, expressionCounter, expressionMap, reverseMap);
+        return "data['" + label + "']";
     }
 
     private String loadComponentSource(String componentName) {

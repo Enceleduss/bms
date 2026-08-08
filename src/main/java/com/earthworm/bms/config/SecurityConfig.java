@@ -27,8 +27,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.*;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationProvider;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.authentication.OpaqueTokenAuthenticationProvider;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
@@ -82,15 +82,15 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Order(2)
+    @Order(1)
     public SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception{
         http.csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> {
-                    auth.requestMatchers("/login/**","/beans","/actuator/**").permitAll();
-                    auth.requestMatchers("/error/**").permitAll();
+                    auth.requestMatchers("/api/login/**","/api/beans","/actuator/**","api/register-expressions/**").permitAll(); // Ensure /api/login is permitted
+                    auth.requestMatchers("/api/error/**").permitAll();
 
-                    auth.requestMatchers("/register/**").permitAll();
-                    auth.requestMatchers("/refresh/**").permitAll();
+                    auth.requestMatchers("/api/register/**").permitAll();
+                    auth.requestMatchers("/api/refresh/**").permitAll();
                     //auth.requestMatchers("/index/**").permitAll();
                     // auth.requestMatchers("/admin/**").hasRole("ADMIN");
                     //auth.requestMatchers("/user/**").hasAnyRole("ADMIN", "USER");
@@ -111,19 +111,19 @@ public class SecurityConfig {
         return http.build();
     }
     @Bean
-    @Order(1)
+    @Order(2)
     public SecurityFilterChain webFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.disable()) // CSRF generally disabled for API-first approach
                 .authorizeHttpRequests(auth -> {
-                    auth.requestMatchers("/login/**", "/register/**", "/index/**", "/css/**", "/js/**", "/images/**", "/error/**").permitAll();
+                    auth.requestMatchers("api/login/**", "/register/**", "/index/**", "/css/**", "/js/**", "/images/**", "/error/**").permitAll();
                     auth.anyRequest().authenticated();
                 })
-                .formLogin(form -> form
-                        .loginPage("/login")
-                        .defaultSuccessUrl("/landing", true)
-                        .permitAll()
-                )
+                // .formLogin(form -> form // REMOVED: Disable default form login
+                //         .loginPage("/login")
+                //         .defaultSuccessUrl("/landing", true)
+                //         .permitAll()
+                // )
                 .logout(logout -> logout
                         .logoutUrl("/signout")
                         .logoutSuccessUrl("/login?logout")

@@ -2,8 +2,9 @@ package com.earthworm.bms.controller;
 
 import com.earthworm.bms.service.JsScopeService;
 import com.earthworm.bms.service.TemplateCompilerService;
-import com.earthworm.bms.service.reactive.ReactiveRegistry;
+import com.earthworm.bms.service.reactive.ReactiveNodeRegistry;
 import jakarta.servlet.http.HttpSession;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
@@ -20,6 +21,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Controller
 public class TemplateController {
 
@@ -27,10 +29,11 @@ public class TemplateController {
     private TemplateCompilerService compilerService;
 
     @Autowired
-    private JsScopeService jsScopeService;
+    private JsScopeService
+            jsScopeService;
 
     @Autowired
-    private ReactiveRegistry reactiveRegistry;
+    private ReactiveNodeRegistry reactiveNodeRegistry;
 
     private static final Path CACHE_DIR = Paths.get("target", "generated-js");
     private static final Map<String, Map<String, String>> EXPRESSION_CACHE = new ConcurrentHashMap<>();
@@ -40,7 +43,7 @@ public class TemplateController {
         Files.createDirectories(CACHE_DIR);
 
         // Look for .dt files now
-        Path sourcePath = new ClassPathResource("templates/components/" + componentName + ".dt").getFile().toPath();
+        Path sourcePath = new ClassPathResource("templates/components/" + componentName + ".comp").getFile().toPath();
         Path cachedJsPath = CACHE_DIR.resolve(componentName + ".js");
 
         long sourceLastModified = Files.getLastModifiedTime(sourcePath).toMillis();
@@ -60,9 +63,10 @@ public class TemplateController {
     @ResponseBody
     public Map<String, Object> evaluateExpressions(@PathVariable String componentName, HttpSession session) throws IOException {
         Map<String, String> labelToExpressionMap = EXPRESSION_CACHE.get(componentName);
-
+        System.out.println("labelToExpressionMap is not null");
         if (labelToExpressionMap == null) {
-            Path sourcePath = new ClassPathResource("templates/components/" + componentName + ".dt").getFile().toPath();
+            System.out.println("labelToExpressionMap is null");
+            Path sourcePath = new ClassPathResource("templates/components/" + componentName + ".comp").getFile().toPath();
             Path cachedJsPath = CACHE_DIR.resolve(componentName + ".js");
             Files.createDirectories(CACHE_DIR);
             compileAndCache(componentName, sourcePath, cachedJsPath);
@@ -70,24 +74,30 @@ public class TemplateController {
         }
 
         List<String> expressions = new ArrayList<>(labelToExpressionMap.values());
-        
+        System.out.println("expressions "+expressions);
         // Evaluate with dependency tracking
         JsScopeService.EvaluationResult result = jsScopeService.evaluateWithTracking(expressions);
-
-        // Register dependencies in the registry
-        String sessionId = session.getId();
-        Map<String, String> finalLabelToExpressionMap = labelToExpressionMap;
-        result.dependencies().forEach((expression, nodeIds) -> {
-            // Find the label for this expression
-            String label = finalLabelToExpressionMap.entrySet().stream()
-                    .filter(e -> e.getValue().equals(expression))
-                    .map(Map.Entry::getKey)
-                    .findFirst().orElse(null);
-            
-            if (label != null) {
-                nodeIds.forEach(nodeId -> reactiveRegistry.register(nodeId, sessionId, componentName, label));
-            }
-        });
+        System.out.println("hhere 1");
+        // Register dependencies in the registry - THIS LOGIC IS MOVED TO ExpressionController
+        // String sessionId = session.getId();
+        // Map<String, String> finalLabelToExpressionMap = labelToExpressionMap;
+        // System.out.println("hhere 2");
+        // result.dependencies().forEach((expression, nodeIds) -> {
+        //     System.out.println("hhere 3 "+expression);
+        //     String label = finalLabelToExpressionMap.entrySet().stream()
+        //             .filter(e -> e.getValue().equals(expression))
+        //             .map(Map.Entry::getKey)
+        //             .findFirst().orElse(null);
+        //     System.out.println("hhere 5");
+        //     if (label != null) {
+        //         System.out.println("hhere 6 "+nodeIds.size());
+        //         nodeIds.forEach(nodeId -> {
+        //             System.out.println("nodeId "+nodeId+" sessionId "+sessionId+" componentName "+componentName+" label "+label);
+        //             reactiveRegistry.register(nodeId, sessionId, componentName, label);
+        //
+        //         });
+        //     }
+        // });
 
         // Transform to Label -> Value map for client
         Map<String, Object> labelToValueMap = new HashMap<>();

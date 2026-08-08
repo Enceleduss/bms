@@ -2,13 +2,18 @@ package com.earthworm.bms.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
+@AllArgsConstructor
+@NoArgsConstructor
 @Entity
-public class Folder extends GraphNode{
+public class Folder extends GraphNode {
+    @Column(unique = true, nullable = false)
+    private String name;
+
     @Column
-    String name;
-    @Column
-    String description;
+    private String description;
 
     public String getName() {
         return name;

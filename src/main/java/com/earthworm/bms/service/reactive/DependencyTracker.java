@@ -10,7 +10,7 @@ public class DependencyTracker {
     private static final ThreadLocal<Set<Long>> accessedNodes = new ThreadLocal<>();
     private static final ThreadLocal<Boolean> isTracking = ThreadLocal.withInitial(() -> false);
 
-    public static void startTracking() {
+    public static void start() {
         accessedNodes.set(new HashSet<>());
         isTracking.set(true);
     }
@@ -21,10 +21,14 @@ public class DependencyTracker {
         }
     }
 
-    public static Set<Long> stopTracking() {
+    public static Set<Long> stop() {
         Set<Long> nodes = accessedNodes.get();
         accessedNodes.remove();
         isTracking.set(false);
         return nodes;
+    }
+
+    public static Set<Long> getAccessed() {
+        return accessedNodes.get();
     }
 }

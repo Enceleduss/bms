@@ -1,15 +1,14 @@
 <!-- This is a custom XML template for our framework -->
 <div class="user-card" xmlns:dt="http://www.w3.org/1999/xhtml">
-    <dt:var name="fullName">user.name.toUpperCase()</dt:var>
     <dt:var name="appInfo">appName + " v" + version</dt:var>
-    <dt:var name="headerText">"User Profile: " + user.username</dt:var>
-
-    <!-- Pass 'headerText' as an argument to the component -->
+    <dt:var name="headerText">"This is a header line"</dt:var>
+    <!-- Use the new app-header component -->
     <dt:make-comp class="app-header" args="[headerText]"/>
 
-    <h3><dt:v>fullName</dt:v></h3>
+    <!-- Use the new user-info component for displaying user details -->
+    <dt:make-comp class="user-info"/>
 
-    <p><span class="label">Email:</span> <span>${user.email}</span></p>
+
 
     <dt:if cond="isAdmin">
         <dt:then>

@@ -1,20 +1,12 @@
 // src/main/resources/scripts/startup_script.js
 
-// Define global variables
-var appName = "My Custom Banking App";
-var version = "1.0.0";
+// Load other scripts
+//load('classpath:scripts/AppData_Test.js');
 
-// Define global functions
-function getFormattedTime() {
-    const now = new Date();
-    return now.toLocaleTimeString();
-}
 
-// Access a Java class directly
-const GlobalConfigClass = Java.type('com.earthworm.bms.config.GlobalConfig');
 
-// Create an instance of the Java class
-const config = new GlobalConfigClass(5000, true);
+console.log("Dynamic Schema initialized via JavaScript.");
 
-console.log("Startup script loaded: appName=" + appName + ", version=" + version);
-console.log("Global Config from Java: " + config.toString());
+var appName = "My Dynamic Schema App";
+var version = "2.0.0";
+function getFormattedTime() { return new Date().toLocaleTimeString(); }

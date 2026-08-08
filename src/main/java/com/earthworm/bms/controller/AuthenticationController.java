@@ -57,7 +57,7 @@ public class AuthenticationController {
     @Autowired
     RefreshTokenService refreshTokenService;
 
-    @PostMapping("/login")
+    @PostMapping("/api/login")
     public ResponseEntity<LoginResponseDTO> loginUser(@RequestBody LoginDTO body, HttpServletRequest request, HttpServletResponse response) throws UserPrincipalNotFoundException {
         //throw new ResponseStatusException(HttpStatus.NOT_FOUND,"User not found with name ");
         try{

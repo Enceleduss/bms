@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import com.earthworm.bms.model.datapojos.RegistrationDetailsDTO;
+import com.earthworm.bms.repository.GraphRepository;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -32,7 +33,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 public class AuthenticationService {
 
     @Autowired
-    private CustomerRepository userRepository;
+    private GraphRepository graphRepository;
 
     @Autowired
     private RoleRepository roleRepository;
@@ -46,6 +47,9 @@ public class AuthenticationService {
     @Autowired
     private TokenService tokenService;
 
+    @Autowired
+    private CustomerRepository userRepository;
+
     public CustomerRecord registerUser(RegistrationDetailsDTO rec){
 
         String encodedPassword = passwordEncoder.encode(rec.getPassword());
@@ -55,7 +59,7 @@ public class AuthenticationService {
 
         authorities.add(userRole);
 
-        CustomerRecord userRecord = userRepository.save(new CustomerRecord(rec.getName(), rec.getEmail(), rec.getUsername(), encodedPassword, rec.getAddress(), rec.getPan(), rec.getUid(), authorities));
+        CustomerRecord userRecord = new CustomerRecord(rec.getName(), rec.getEmail(), rec.getUsername(), encodedPassword, rec.getAddress(), rec.getPan(), rec.getUid(), authorities);
         userRecord.setAcctype(rec.getAcctype());
         userRecord.setBranchname(rec.getBranchname());
         userRecord.setDob(rec.getDob());
@@ -66,6 +70,7 @@ public class AuthenticationService {
         userRecord.setState(rec.getState());
         userRecord.setInitialdeposit(rec.getInitialdeposit());
         userRecord.depositBalance(rec.getInitialdeposit());
+        graphRepository.save(userRecord);
         return userRecord;
     }
 

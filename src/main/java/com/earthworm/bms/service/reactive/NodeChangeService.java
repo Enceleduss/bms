@@ -1,9 +1,7 @@
 package com.earthworm.bms.service.reactive;
 
-import com.earthworm.bms.controller.ReactivePushController;
-import com.earthworm.bms.service.JsScopeService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -12,41 +10,29 @@ import java.util.*;
 public class NodeChangeService {
 
     @Autowired
-    private ReactiveRegistry registry;
+    private ReactiveNodeRegistry registry;
 
     @Autowired
-    private ReactivePushController pushController;
-
-    @Autowired
-    private ApplicationContext applicationContext;
+    private ApplicationEventPublisher eventPublisher; // To publish events
 
     /**
      * Call this whenever a GraphNode is modified in the database.
+     * This will trigger publishing an event for each affected session.
      */
     public void notifyChange(Long nodeId) {
-        Set<ReactiveRegistry.Subscription> subscribers = registry.getSubscribers(nodeId);
+        Set<ReactiveNodeRegistry.Subscription> subscribers = registry.getSubscribers(nodeId);
         
         if (subscribers.isEmpty()) return;
 
-        // Group by session to re-evaluate efficiently
-        Map<String, List<ReactiveRegistry.Subscription>> bySession = new HashMap<>();
-        subscribers.forEach(s -> bySession.computeIfAbsent(s.sessionId(), k -> new ArrayList<>()).add(s));
+        // Group by session to publish one event per session
+        Map<String, Set<String>> expressionIdsBySession = new HashMap<>();
+        subscribers.forEach(s -> 
+            expressionIdsBySession.computeIfAbsent(s.sessionId(), k -> new HashSet<>()).add(s.expressionId())
+        );
 
-        bySession.forEach((sessionId, subs) -> {
-            // Get the user's specific JsScopeService (session-scoped)
-            // Note: Retrieving a session-scoped bean outside a request context is tricky.
-            // For now, we'll assume the evaluation happens in the background.
-            
-            // Collect all unique expressions that need re-evaluation for this session
-            List<String> expressionsToRun = new ArrayList<>();
-            // Map label back to original expression (we need this mapping stored somewhere)
-            // For now, let's assume we can trigger a refresh signal to the client.
-            
-            Map<String, Object> updatePayload = new HashMap<>();
-            updatePayload.put("type", "REFRESH_REQUIRED");
-            updatePayload.put("nodeId", nodeId);
-            
-            pushController.pushUpdate(sessionId, updatePayload);
+        expressionIdsBySession.forEach((sessionId, expressionIdsToReEvaluate) -> {
+            // Publish an event for each affected session
+            eventPublisher.publishEvent(new ExpressionReEvaluationEvent(this, sessionId, nodeId, expressionIdsToReEvaluate));
         });
     }
 }
