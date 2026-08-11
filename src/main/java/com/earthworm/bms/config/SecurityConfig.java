@@ -86,11 +86,11 @@ public class SecurityConfig {
     public SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception{
         http.csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> {
-                    auth.requestMatchers("/api/login/**","/api/beans","/actuator/**","api/register-expressions/**").permitAll(); // Ensure /api/login is permitted
-                    auth.requestMatchers("/api/error/**").permitAll();
+                    auth.requestMatchers("/login/**","/beans","/actuator/**","api/register-expressions/**").permitAll(); // Ensure /api/login is permitted
+                    auth.requestMatchers("/error/**").permitAll();
 
-                    auth.requestMatchers("/api/register/**").permitAll();
-                    auth.requestMatchers("/api/refresh/**").permitAll();
+                    auth.requestMatchers("/register/**").permitAll();
+                    auth.requestMatchers("/refresh/**").permitAll();
                     //auth.requestMatchers("/index/**").permitAll();
                     // auth.requestMatchers("/admin/**").hasRole("ADMIN");
                     //auth.requestMatchers("/user/**").hasAnyRole("ADMIN", "USER");

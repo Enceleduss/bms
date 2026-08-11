@@ -33,9 +33,6 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 public class AuthenticationService {
 
     @Autowired
-    private GraphRepository graphRepository;
-
-    @Autowired
     private RoleRepository roleRepository;
 
     @Autowired
@@ -50,6 +47,15 @@ public class AuthenticationService {
     @Autowired
     private CustomerRepository userRepository;
 
+    private final GraphRepository<CustomerRecord> graphRepository;
+    private final GraphNodeService graphNodeService;
+
+    // Constructor injection
+    public AuthenticationService(GraphRepository<CustomerRecord> graphRepository, GraphNodeService graphNodeService) {
+        this.graphRepository = graphRepository;
+        this.graphNodeService = graphNodeService;
+    }
+
     public CustomerRecord registerUser(RegistrationDetailsDTO rec){
 
         String encodedPassword = passwordEncoder.encode(rec.getPassword());
@@ -59,6 +65,13 @@ public class AuthenticationService {
 
         authorities.add(userRole);
 
+        CustomerRecord userRecord = createUserRecord(rec, encodedPassword, authorities);
+        userRecord.depositBalance(rec.getInitialdeposit());
+        graphNodeService.addGNode(userRecord,graphNodeService.getFolder(graphNodeService.getCompanyPublicFolder().get(),"Users").get(),"Children");
+        return userRecord;
+    }
+
+    private static CustomerRecord createUserRecord(RegistrationDetailsDTO rec, String encodedPassword, Set<Role> authorities) {
         CustomerRecord userRecord = new CustomerRecord(rec.getName(), rec.getEmail(), rec.getUsername(), encodedPassword, rec.getAddress(), rec.getPan(), rec.getUid(), authorities);
         userRecord.setAcctype(rec.getAcctype());
         userRecord.setBranchname(rec.getBranchname());
@@ -69,8 +82,6 @@ public class AuthenticationService {
         userRecord.setPhone(rec.getPhone());
         userRecord.setState(rec.getState());
         userRecord.setInitialdeposit(rec.getInitialdeposit());
-        userRecord.depositBalance(rec.getInitialdeposit());
-        graphRepository.save(userRecord);
         return userRecord;
     }
 

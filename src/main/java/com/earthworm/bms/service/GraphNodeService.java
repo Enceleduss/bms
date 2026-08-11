@@ -11,6 +11,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.metamodel.EntityType;
 import jakarta.persistence.metamodel.Metamodel;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
@@ -135,15 +136,24 @@ public class GraphNodeService {
         // Ensure ID and Type are set via the generic save method
         Folder folder = new Folder("CompanyPublicFolder", "Top Node in heirarchy");
         folder.setType("Folder"); // Explicitly set type for Folder
-        return graphRepository.save(folder);
+        Folder companyFolder = graphRepository.save(folder);
+        String stmt ="SELECT * FROM cypher('main_graph', $$ CREATE (r:RootNode {id: ?, name: System Root, status: active}) RETURN r $$)) as (r agtype);";
+        PreparedStatementSetter pss = ps -> {
+            ps.setLong(1, companyFolder.getId());
+        };
+        RowMapper<Long> rm = (rs, rowNum) -> rs.getLong(0);
+        gUtils.executeQueryForResults(stmt, pss, rm);
+        return companyFolder;
     }
 
+
     @Transactional
-    public GraphNode createFolder(GraphNode parent, String name, String description){
+    public Folder createFolder(GraphNode parent, String name, String description){
         // Ensure ID and Type are set via the generic save method
         Folder folder = new Folder(name, description);
         folder.setType("Folder"); // Explicitly set type for Folder
-        return addGNode(folder,parent,"Children");
+        GraphNode gNode = addGNode(folder,parent,"Children");
+        return folder.setGraph(gNode);
     }
 
     /**
@@ -160,7 +170,7 @@ public class GraphNodeService {
      * @param name The name of the folder.
      * @return An Optional containing the Folder, or empty if not found.
      */
-    public Optional<Folder> getFolderByName (String name, GraphNode parent){
+    public List<Folder> getFoldersByName (String name, GraphNode parent){
         // Using specific repository for specific query
         String stmt ="SELECT * FROM cypher('main_graph', $$ MATCH (p:GraphNode)-[:Children]->(c:GraphNode) WHERE p.id = ? AND c.type = 'Folder' AND c.name = ? RETURN c.id $$) AS (id agtype);";
         PreparedStatementSetter pss = ps -> {
@@ -169,7 +179,7 @@ public class GraphNodeService {
         };
         RowMapper<Long> rm = (rs, rowNum) -> rs.getLong(0);
         List<Long> nodeIds = gUtils.executeQueryForResults(stmt, pss, rm);
-        return graphRepository.findById(nodeIds.get(0)).map(node -> (Folder) node);
+        return nodeIds.stream().map(id -> (Folder) graphRepository.findById(id).orElseThrow()).collect(Collectors.toList());
     }
 
    /**
@@ -204,7 +214,19 @@ public class GraphNodeService {
                 .collect(Collectors.toList());
     }
 
+    @Cacheable("companyPublicFolder")
     public Optional<Folder> getCompanyPublicFolder() {
         return folderRepository.findByName("CompanyPublicFolder");
+    }
+
+    public Optional<Folder> getFolder(GraphNode parent, String name) {
+        String stmt ="SELECT * FROM cypher('main_graph', $$ MATCH (p:GraphNode)-[:Children]->(c:GraphNode) WHERE p.id = ? AND c.type = 'Folder' AND c.name = ? RETURN c.id $$) AS (id agtype);";
+        PreparedStatementSetter pss = ps -> {
+            ps.setLong(1, parent.getId());
+            ps.setString(2, name);
+        };
+        RowMapper<Long> rm = (rs, rowNum) -> rs.getLong(0);
+        List<Long> nodeIds = gUtils.executeQueryForResults(stmt, pss, rm);
+        return graphRepository.findById(nodeIds.get(0)).map(node -> (Folder) node);
     }
 }

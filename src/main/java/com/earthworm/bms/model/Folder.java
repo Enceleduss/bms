@@ -15,6 +15,18 @@ public class Folder extends GraphNode {
     @Column
     private String description;
 
+    public Folder(GraphNode node) {
+        this.setId(node.getId());
+        this.setParentid(node.getParentid());
+        this.setType(node.getType());
+    }
+
+    public Folder(GraphNode node, String name, String description) {
+        this(node);
+        this.name = name;
+        this.description = description;
+    }
+
     public String getName() {
         return name;
     }
@@ -29,5 +41,12 @@ public class Folder extends GraphNode {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Folder setGraph(GraphNode gNode) {
+        this.setId(gNode.getId());
+        this.setParentid(gNode.getParentid());
+        this.setType(gNode.getType());
+        return this;
     }
 }

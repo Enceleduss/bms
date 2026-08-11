@@ -42,11 +42,12 @@ public class CustmerController {
     @PostMapping("/register")
     public ResponseEntity<CustomerRecord> registerUser(@RequestBody RegistrationDetailsDTO body){
         System.out.println("body " + body.toString());
+        CustomerRecord customerNode = null;
         if(!userRepository.existsByUsername(body.getUsername()))
-            authenticationService.registerUser(body);
+            customerNode = authenticationService.registerUser(body);
         else
             return ResponseEntity.badRequest().build();
-        return ResponseEntity.created(null).build();
+        return ResponseEntity.ok(customerNode);
     }
 
     @GetMapping("/user-details")

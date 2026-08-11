@@ -11,12 +11,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashSet;
 import java.util.Set;
 
+@EnableCaching
 @SpringBootApplication
 public class BmsApplication {
 
@@ -30,13 +32,13 @@ public class BmsApplication {
 						  FolderRepository folderRepository,
 						  GraphNodeService _g){
 		return args ->{
-			System.out.println("folder not found");
 			if(_g.getCompanyPublicFolder().isEmpty())
 			{
-				System.out.println("folder not found");
-
+				System.out.println("company folder not found. Hence creating a global company folder and user folder...");
 				Folder companyPublicFolder = _g.createCompanyPublicFolder();
-				folderRepository.save(companyPublicFolder);
+				_g.createFolder(companyPublicFolder,"Users", "Carries user node heirarchy");
+				//folderRepository.save(companyPublicFolder);
+				//folderRepository.save(userFolder);
 			}
 			if(roleRepository.findByAuthority("ADMIN").isPresent()) return;
 			Role adminRole = roleRepository.save(new Role("ADMIN"));
