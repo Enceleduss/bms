@@ -106,8 +106,8 @@ public class GraphNodeService {
     public GraphNode addGNode(GraphNode node, GraphNode parentNode, String edgeName) {
         if (node.getId() == 0) { // Assuming 0 means new entity, adjust if using different strategy
             try {
-                long node_id = gUtils.getNextSequenceValue("NODE_ID").orElseThrow(() -> new RuntimeException("Could not get next sequence value for NODE_ID"));
-                node.setId(node_id);
+               // long node_id = gUtils.getNextSequenceValue("NODE_ID").orElseThrow(() -> new RuntimeException("Could not get next sequence value for NODE_ID"));
+                //node.setId(node_id);
                 node.setParentid(parentNode.getId());
             } catch (Exception e) {
                 throw new RuntimeException("Failed to get next sequence ID for GraphNode", e);

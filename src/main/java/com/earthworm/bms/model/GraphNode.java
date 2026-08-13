@@ -7,7 +7,15 @@ import jakarta.persistence.*;
 @Inheritance(strategy = InheritanceType.JOINED)
 public class GraphNode {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @SequenceGenerator(
+            name = "graph_node_id_seq",      // A unique name for this generator in your application
+            sequenceName = "graph_node_id_seq", // The actual name of the sequence in your PostgreSQL database
+            allocationSize = 1              // How many IDs to pre-fetch (1 is safest for most apps)
+    )
+    @GeneratedValue(
+            strategy = GenerationType.SEQUENCE,
+            generator = "graph_node_id_seq"   // Reference the generator defined above
+    )
     protected long id;
 
     @Column(nullable = true)
