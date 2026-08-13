@@ -5,6 +5,7 @@ import com.earthworm.bms.model.Folder;
 import com.earthworm.bms.model.GraphNode;
 import com.earthworm.bms.repository.GraphRepository;
 import com.earthworm.bms.service.GraphNodeService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,9 +39,10 @@ class BmsApplicationTests {
 		n.setType("Folder");
 		n.setDescription("TestFolder");
 		//gu.createTable("sunil (sunny int)");
-		GraphNode ret = (GraphNode) graphRepository.findById(52L).get();
+		//GraphNode ret = (GraphNode) graphRepository.findById(52L).get();
 		//GraphNode ret = _g.commitGNode(n,_g.getNodeById(999999L),"Children");
-		System.out.println("sunil ret "+ret.getId());
+		// GraphNode ret =	_g.createCompanyPublicFolder();
+		//System.out.println("sunil ret "+ret.getId());
 		assert("Sunil").equals("Sunil");
 	}
 

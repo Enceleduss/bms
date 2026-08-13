@@ -5,6 +5,8 @@ import com.earthworm.bms.model.Folder;
 import com.earthworm.bms.model.GraphNode;
 import com.earthworm.bms.repository.FolderRepository;
 import com.earthworm.bms.repository.GraphRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Table;
@@ -132,17 +134,13 @@ public class GraphNodeService {
     }
 
     @Transactional
-    public Folder createCompanyPublicFolder (){
+    public Folder createCompanyPublicFolder () {
         // Ensure ID and Type are set via the generic save method
         Folder folder = new Folder("CompanyPublicFolder", "Top Node in heirarchy");
         folder.setType("Folder"); // Explicitly set type for Folder
         Folder companyFolder = graphRepository.save(folder);
-        String stmt ="SELECT * FROM cypher('main_graph', $$ CREATE (r:RootNode {id: ?, name: System Root, status: active}) RETURN r $$)) as (r agtype);";
-        PreparedStatementSetter pss = ps -> {
-            ps.setLong(1, companyFolder.getId());
-        };
-        RowMapper<Long> rm = (rs, rowNum) -> rs.getLong(0);
-        gUtils.executeQueryForResults(stmt, pss, rm);
+        String stmt ="SELECT * FROM cypher('main_graph', $$ CREATE (r:RootNode {id: "+companyFolder.getId()+", name: 'CompanyPublicFolder'}) RETURN NULL$$) as (a agtype)";
+        gUtils.executeQuery(stmt);
         return companyFolder;
     }
 

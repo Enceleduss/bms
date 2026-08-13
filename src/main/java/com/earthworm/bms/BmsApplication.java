@@ -14,6 +14,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -26,6 +27,7 @@ public class BmsApplication {
 		SpringApplication.run(BmsApplication.class, args);
 	}
 	@Bean
+	@Transactional
 	CommandLineRunner run(RoleRepository roleRepository,
 						  CustomerRepository userRepository,
 						  PasswordEncoder passwordEncode,

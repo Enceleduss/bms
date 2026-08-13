@@ -1,10 +1,13 @@
 package com.earthworm.bms.dbutils;
 
+
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementSetter;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
@@ -20,6 +23,7 @@ public class GraphUtils {
     public GraphUtils(DataSource ds) {
         this.jdbcTemplate = new JdbcTemplate(ds);
     }
+
 
     private void initAge() {
         // These commands must be run for Apache AGE to work on a connection
